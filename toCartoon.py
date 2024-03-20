@@ -20,14 +20,19 @@ def MakeOutline(img):
     return outLined
 
 def ShowHist(imgs):
-    GetHSVHist(imgs[0])
-    GetHSVHist(imgs[2])
-    
+    hists = []
+    hists.append(GetHSVHist(imgs[0]))
+    hists.append(GetHSVHist(imgs[2]))
 
     # Merge Images
     mergedImgs = np.hstack(imgs)
+    mergedHists = np.vstack(hists)
+    mergedHists = cv.resize(mergedHists, (max(mergedHists.shape[1], mergedImgs.shape[1]), mergedHists.shape[0]))
+    mergedAll = np.vstack((mergedHists, mergedImgs))
     
-    cv.imshow('image', mergedImgs)
+    mergedAll = cv.resize(mergedAll,  (int(mergedAll.shape[1] * 0.5), int(mergedAll.shape[0] * 0.5)))
+
+    cv.imshow('image', mergedAll)
     cv.waitKey(0)
     cv.destroyAllWindows()
 
@@ -79,8 +84,19 @@ def GetHSVHist(img):
     plt.xlim([0, 256])
 
     # returns Hist img
-    plt.tight_layout()
-    plt.show()
+    #plt.tight_layout()
+    #plt.show()
+
+    # Convert plot to image
+    buf = BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    hist_img = cv.imdecode(np.frombuffer(buf.getvalue(), np.uint8), 1)
+    buf.close()
+    plt.close()
+
+    return hist_img
+
 
 
 imgs = []
