@@ -5,7 +5,7 @@ from io import BytesIO
 import base64
 
 def SmoothOut(img):
-    smooth = img
+    smooth = cv.medianBlur(img, 5)
     return smooth
 
 def ModifyColor(img):
@@ -96,8 +96,6 @@ def GetHSVHist(img):
     plt.close()
 
     return hist_img
-
-
 
 imgs = []
 smooths = []
