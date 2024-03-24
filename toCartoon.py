@@ -308,6 +308,57 @@ def GetCartoonRendered(img):
     outlined = MakeOutline(img, colorModifed)
     return outlined
 
+def GetCartoonVideo(relativePath):
+    video_file = relativePath
+
+    # Read the given video
+    video = cv.VideoCapture(video_file)
+
+    # Check if the video is successfully opened
+    if not video.isOpened():
+        exit()
+        print("Error: Could not open the video file.")
+
+    # Get video properties
+    fps = video.get(cv.CAP_PROP_FPS)
+    width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
+    height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
+    is_color = True  # Assuming the video is in color
+
+    # Define the output video file name
+    output_file = video_file[:video_file.rfind('.')] + '-cartoon.' + video_file[video_file.rfind('.') + 1:]
+
+    # Initialize VideoWriter
+    fourcc = int(video.get(cv.CAP_PROP_FOURCC))
+    target = cv.VideoWriter(output_file, fourcc, fps, (width, height), is_color)
+
+    # Check if the VideoWriter is successfully initialized
+    if not target.isOpened():
+        print("Error: Could not initialize the VideoWriter.")
+        exit()
+
+    # Process and write each frame to the output video
+    while True:
+        valid, frame = video.read()
+        if not valid:
+            break
+        
+        cartooned_frame = GetCartoonRendered(frame)
+        
+        # Write the processed frame to the output video
+        target.write(cartooned_frame)
+        
+        # Display the processed frame (optional)
+        cv.imshow('Cartoonized Frame', cartooned_frame)
+        if cv.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit
+            break
+
+    # Release video objects
+    video.release()
+    target.release()
+    cv.destroyAllWindows()    
+
+'''
 video_file = 'data/people-talking.mp4'
 
 # Read the given video
@@ -356,3 +407,4 @@ while True:
 video.release()
 target.release()
 cv.destroyAllWindows()
+'''
