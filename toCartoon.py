@@ -58,6 +58,7 @@ def ModifyColor(img):
     colorModified = cv.cvtColor(modified_hls_img, cv.COLOR_HLS2BGR)
  
     return colorModified
+
 def make_blue_black(img):
     # Convert image to HSV color space
     hsv_img = cv.cvtColor(img, cv.COLOR_BGR2HSV)
@@ -77,150 +78,47 @@ def make_blue_black(img):
 
     return img
 
-def MakeOutline(original, img, flag = 5):
-    
-    # Sobel
-    if flag == 1:
-        # Initialize control parameters
-        threshold1 = 100
-        threshold2 = 400
-        aperture_size = 3
+def MakeOutline(original, img):
 
-        edges = cv.Canny(img, threshold1, threshold2, apertureSize=aperture_size)
+    kernel_size = 11
+    sigma_color = 150
+    sigma_space = 10
+    n_iterations = 2
 
-        # Create a 3-channel blank image for the outline
-        outline = np.zeros_like(original)
+    for itr in range(n_iterations):
+        bil = cv.bilateralFilter(original, kernel_size, sigma_color, sigma_space)
+    # Compute gradient along x and y directions for each color channel
+    gradient_x_b = cv.Sobel(bil[:,:,0], cv.CV_64F, 1, 0, ksize=kernel_size)
+    gradient_y_b = cv.Sobel(bil[:,:,0], cv.CV_64F, 0, 1, ksize=kernel_size)
+    gradient_x_g = cv.Sobel(bil[:,:,1], cv.CV_64F, 1, 0, ksize=kernel_size)
+    gradient_y_g = cv.Sobel(bil[:,:,1], cv.CV_64F, 0, 1, ksize=kernel_size)
+    gradient_x_r = cv.Sobel(bil[:,:,2], cv.CV_64F, 1, 0, ksize=kernel_size)
+    gradient_y_r = cv.Sobel(bil[:,:,2], cv.CV_64F, 0, 1, ksize=kernel_size)
 
-        # Assign edges to each channel of the outline image
-        for i in range(3):
-            outline[:,:,i] = edges
+    # Compute magnitude of gradient for each color channel
+    magnitude_gradient_b = np.sqrt(gradient_x_b**2 + gradient_y_b**2)
+    magnitude_gradient_g = np.sqrt(gradient_x_g**2 + gradient_y_g**2)
+    magnitude_gradient_r = np.sqrt(gradient_x_r**2 + gradient_y_r**2)
 
-        # Merge the outline with the original image
-        outLined = cv.addWeighted(img, 1, outline, 0.5, 0)
+    # Normalize gradient magnitudes to [0, 1]
+    normalized_magnitude_b = cv.normalize(magnitude_gradient_b, None, 0, 1, cv.NORM_MINMAX)
+    normalized_magnitude_g = cv.normalize(magnitude_gradient_g, None, 0, 1, cv.NORM_MINMAX)
+    normalized_magnitude_r = cv.normalize(magnitude_gradient_r, None, 0, 1, cv.NORM_MINMAX)
 
-    if flag == 2:
-        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    # Combine the normalized gradient magnitudes
+    combined_gradient = np.maximum(np.maximum(normalized_magnitude_b, normalized_magnitude_g), normalized_magnitude_r)
 
-        gradient_x = cv.Sobel(gray, cv.CV_64F, 1, 0, ksize=11)
-        gradient_y = cv.Sobel(gray, cv.CV_64F, 0, 1, ksize=11)
+    threshold = 0.3
+    # Threshold the combined gradient to find edges
+    edge_mask = (combined_gradient > threshold).astype(np.uint8) * 255
 
-        magnitude_gradient = np.sqrt(gradient_x**2 + gradient_y**2)
+    # Create a 3-channel outline image with edge mask applied to all channels
+    outline = np.zeros_like(original)
+    for c in range(outline.shape[2]):
+        outline[:,:,c] = np.where(edge_mask > 0, original[:,:,c], 0)
 
-        normalized_magnitude = cv.normalize(magnitude_gradient, None, 0, 1, cv.NORM_MINMAX)
-
-        threshold = 0.17
-        edge_mask = (normalized_magnitude > threshold).astype(np.uint8)*255
-        # Perform erosion and dilation operations to refine the outline
-        img_mask = edge_mask.copy()
-        img_mask = cv.erode(img_mask, np.ones((2, 2), np.uint8), iterations=1)
-       
-        outline = np.zeros_like(img)
-        outline[:,:,0] = img_mask
-
-        outLined = img.copy()
-        outLined[edge_mask>0] = [85, 23,19]
-
-    if flag == 3:
-        # Convert image to HLS color space
-        hls_img = cv.cvtColor(original, cv.COLOR_BGR2HLS)
-
-        # Extract hue and saturation channels
-        hue_channel = hls_img[:,:,0].astype(np.float32)
-        saturation_channel = hls_img[:,:,2].astype(np.float32)
-
-        # Compute gradient along x and y directions for hue and saturation channels
-        gradient_hue_x = cv.Sobel(hue_channel, cv.CV_64F, 1, 0, ksize=31)
-        gradient_hue_y = cv.Sobel(hue_channel, cv.CV_64F, 0, 1, ksize=31)
-        gradient_sat_x = cv.Sobel(saturation_channel, cv.CV_64F, 1, 0, ksize=31)
-        gradient_sat_y = cv.Sobel(saturation_channel, cv.CV_64F, 0, 1, ksize=31)
-
-        # Compute magnitude of gradient for hue and saturation channels
-        magnitude_gradient_hue = np.sqrt(gradient_hue_x**2 + gradient_hue_y**2)
-        magnitude_gradient_sat = np.sqrt(gradient_sat_x**2 + gradient_sat_y**2)
-
-        # Normalize gradient magnitudes to [0, 1]
-        normalized_magnitude_hue = cv.normalize(magnitude_gradient_hue, None, 0, 1, cv.NORM_MINMAX)
-        normalized_magnitude_sat = cv.normalize(magnitude_gradient_sat, None, 0, 1, cv.NORM_MINMAX)
-
-        # Combine the normalized gradient magnitudes
-        combined_gradient = np.maximum(normalized_magnitude_hue, normalized_magnitude_sat)
-
-        # Threshold the combined gradient to find edges
-        threshold = 0.8  # Adjust this threshold as needed
-        edge_mask = (combined_gradient > threshold).astype(np.uint8) * 255
-
-        # Create a 3-channel blank image for the outline
-        outline = np.zeros_like(original)
-        outline[:, :, 0] = edge_mask  # Assign edge mask to the Blue channel
-
-        # Merge the outline with the original image
-        outLined = cv.addWeighted(img, 1, outline, 0.5, 0)
-
-    if flag == 4:
-        kernel_size = 11
-        sigma_color = 150
-        sigma_space = 10
-        n_iterations = 2
-
-        for itr in range(n_iterations):
-            bil = cv.bilateralFilter(original, kernel_size, sigma_color, sigma_space)
-
-        gray = cv.cvtColor(bil, cv.COLOR_BGR2GRAY)
-        gradient_x = cv.Sobel(gray, cv.CV_64F, 1, 0, ksize=11)
-        gradient_y = cv.Sobel(gray, cv.CV_64F, 0, 1, ksize=11)
-
-        magnitude_gradient = np.sqrt(gradient_x**2 + gradient_y**2)
-
-        normalized_magnitude = cv.normalize(magnitude_gradient, None, 0, 1, cv.NORM_MINMAX)
-
-        threshold = 0.13
-        edge_mask = (normalized_magnitude > threshold).astype(np.uint8)*255
-        
-        outLined = img.copy()
-
-        # Set the pixels where the edge mask is greater than 0 to black ([0, 0, 0])
-        outLined[edge_mask > 0] = [0, 0, 0]
-
-    if flag == 5:
-        kernel_size = 11
-        sigma_color = 150
-        sigma_space = 10
-        n_iterations = 2
-
-        for itr in range(n_iterations):
-            bil = cv.bilateralFilter(original, kernel_size, sigma_color, sigma_space)
-        # Compute gradient along x and y directions for each color channel
-        gradient_x_b = cv.Sobel(bil[:,:,0], cv.CV_64F, 1, 0, ksize=kernel_size)
-        gradient_y_b = cv.Sobel(bil[:,:,0], cv.CV_64F, 0, 1, ksize=kernel_size)
-        gradient_x_g = cv.Sobel(bil[:,:,1], cv.CV_64F, 1, 0, ksize=kernel_size)
-        gradient_y_g = cv.Sobel(bil[:,:,1], cv.CV_64F, 0, 1, ksize=kernel_size)
-        gradient_x_r = cv.Sobel(bil[:,:,2], cv.CV_64F, 1, 0, ksize=kernel_size)
-        gradient_y_r = cv.Sobel(bil[:,:,2], cv.CV_64F, 0, 1, ksize=kernel_size)
-
-        # Compute magnitude of gradient for each color channel
-        magnitude_gradient_b = np.sqrt(gradient_x_b**2 + gradient_y_b**2)
-        magnitude_gradient_g = np.sqrt(gradient_x_g**2 + gradient_y_g**2)
-        magnitude_gradient_r = np.sqrt(gradient_x_r**2 + gradient_y_r**2)
-
-        # Normalize gradient magnitudes to [0, 1]
-        normalized_magnitude_b = cv.normalize(magnitude_gradient_b, None, 0, 1, cv.NORM_MINMAX)
-        normalized_magnitude_g = cv.normalize(magnitude_gradient_g, None, 0, 1, cv.NORM_MINMAX)
-        normalized_magnitude_r = cv.normalize(magnitude_gradient_r, None, 0, 1, cv.NORM_MINMAX)
-
-        # Combine the normalized gradient magnitudes
-        combined_gradient = np.maximum(np.maximum(normalized_magnitude_b, normalized_magnitude_g), normalized_magnitude_r)
-
-        threshold = 0.3
-        # Threshold the combined gradient to find edges
-        edge_mask = (combined_gradient > threshold).astype(np.uint8) * 255
-
-        # Create a 3-channel outline image with edge mask applied to all channels
-        outline = np.zeros_like(original)
-        for c in range(outline.shape[2]):
-            outline[:,:,c] = np.where(edge_mask > 0, original[:,:,c], 0)
-
-        outLined = img.copy()
-        outLined[edge_mask>0] = [0, 0, 0]
+    outLined = img.copy()
+    outLined[edge_mask>0] = [0, 0, 0]
 
     return outLined
 
@@ -357,54 +255,3 @@ def GetCartoonVideo(relativePath):
     video.release()
     target.release()
     cv.destroyAllWindows()    
-
-'''
-video_file = 'data/people-talking.mp4'
-
-# Read the given video
-video = cv.VideoCapture(video_file)
-
-# Check if the video is successfully opened
-if not video.isOpened():
-    exit()
-    print("Error: Could not open the video file.")
-
-# Get video properties
-fps = video.get(cv.CAP_PROP_FPS)
-width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
-height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
-is_color = True  # Assuming the video is in color
-
-# Define the output video file name
-output_file = video_file[:video_file.rfind('.')] + '-cartoon.' + video_file[video_file.rfind('.') + 1:]
-
-# Initialize VideoWriter
-fourcc = int(video.get(cv.CAP_PROP_FOURCC))
-target = cv.VideoWriter(output_file, fourcc, fps, (width, height), is_color)
-
-# Check if the VideoWriter is successfully initialized
-if not target.isOpened():
-    print("Error: Could not initialize the VideoWriter.")
-    exit()
-
-# Process and write each frame to the output video
-while True:
-    valid, frame = video.read()
-    if not valid:
-        break
-    
-    cartooned_frame = GetCartoonRendered(frame)
-    
-    # Write the processed frame to the output video
-    target.write(cartooned_frame)
-    
-    # Display the processed frame (optional)
-    cv.imshow('Cartoonized Frame', cartooned_frame)
-    if cv.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit
-        break
-
-# Release video objects
-video.release()
-target.release()
-cv.destroyAllWindows()
-'''
