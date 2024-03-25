@@ -15,7 +15,7 @@ def SmoothOut(img):
 
     return bil
 
-def ModifyColor(img):
+def ModifyColor(img, lightness_level = 8):
     colorModified = img
     
     # Get HSV color space
@@ -28,8 +28,8 @@ def ModifyColor(img):
     # equlize lightness
     equalized_lightness = cv.equalizeHist(lightness_channel)
     
-    num_levels = 9  # Number of discrete levels
-    discrete_lightness = np.round(equalized_lightness / (255 / (num_levels - 1))) * (255 / (num_levels - 1))
+    num_levels = lightness_level  # Number of discrete levels
+    discrete_lightness = np.round(lightness_channel / (255 / (num_levels - 1))) * (255 / (num_levels - 1))
     
     discrete_lightness = discrete_lightness.astype(np.uint8)
 
@@ -108,9 +108,10 @@ def MakeOutline(original, img):
     # Combine the normalized gradient magnitudes
     combined_gradient = np.maximum(np.maximum(normalized_magnitude_b, normalized_magnitude_g), normalized_magnitude_r)
 
-    threshold = 0.3
+    threshold = 0.2
     # Threshold the combined gradient to find edges
     edge_mask = (combined_gradient > threshold).astype(np.uint8) * 255
+    edge_mask = cv.erode(edge_mask, np.ones((2,2), np.uint8))
 
     # Create a 3-channel outline image with edge mask applied to all channels
     outline = np.zeros_like(original)
