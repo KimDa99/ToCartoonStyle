@@ -7,6 +7,6 @@
 
 import toCartoon
 
-targetPath = 'data/people-talking.mp4' #insert the relative path of target video
+targetPath = 'your-target-path.mp4' #insert the relative path of target video
 
 toCartoon.GetCartoonVideo(targetPath)
