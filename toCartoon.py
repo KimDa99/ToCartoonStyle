@@ -248,11 +248,12 @@ def GetCartoonVideo(relativePath):
         target.write(cartooned_frame)
         
         # Display the processed frame (optional)
-        cv.imshow('Cartoonized Frame', cartooned_frame)
+        integratedFrame = np.vstack((cartooned_frame, frame))
+        cv.imshow('Cartoonized Frame', integratedFrame)
         if cv.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit
             break
 
     # Release video objects
     video.release()
     target.release()
-    cv.destroyAllWindows()    
+    cv.destroyAllWindows()
